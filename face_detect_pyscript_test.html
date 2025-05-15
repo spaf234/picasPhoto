@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Detection Services Test</title>
+    <!-- Local PyScript -->
+    <link rel="stylesheet" href="static/pyscript.css">
+    <script defer src="static/pyscript.js"></script>
+    <!-- Local Bootstrap -->
+    <link rel="stylesheet" href="static/bootstrap.min.css">
+    <script src="static/bootstrap.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .service-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .service-title {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .input-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        .input-area.dragover {
+            border-color: #4CAF50;
+            background-color: #f0fff0;
+        }
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .image-preview {
+            max-width: 300px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: white;
+        }
+        .image-preview img {
+            max-width: 100%;
+            height: auto;
+        }
+        .result-container {
+            margin-top: 20px;
+        }
+        .result-item {
+            margin-bottom: 10px;
+        }
+        .result-label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+        .image-result {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 10px;
+        }
+        .image-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <a href="mediapipe_face_landmark_fullsize.png" target="_blank"> mediapipeFace Landmark 486 </a>
+    <div class="container">
+        <h1>Face Detection Services Test</h1>
+
+        <!-- Detect Landmarks Service -->
+        <div class="service-section">
+            <div class="service-title">1. Detect Landmarks</div>
+            <div class="input-area" id="landmarks-input">
+                <p>Drag & drop or click to select an image</p>
+                <input type="file" accept="image/*" style="display: none" id="landmarks-file">
+            </div>
+            <button onclick="detectLandmarks()">Detect Landmarks</button>
+            <div class="preview-container" id="landmarks-preview"></div>
+            <div class="result-container" id="landmarks-result"></div>
+        </div>
+
+        <!-- Align Face Service -->
+        <div class="service-section">
+            <div class="service-title">2. Align Face</div>
+            <div class="input-area" id="align-input">
+                <p>Drag & drop or click to select an image</p>
+                <input type="file" accept="image/*" style="display: none" id="align-file">
+            </div>
+            <button onclick="alignFace()">Align Face</button>
+            <div class="preview-container" id="align-preview"></div>
+            <div class="result-container" id="align-result"></div>
+        </div>
+
+        <!-- Face Similarity Service -->
+        <div class="service-section">
+            <div class="service-title">3. Face Similarity</div>
+            <div class="input-area" id="similarity-input1">
+                <p>Drag & drop or click to select first image</p>
+                <input type="file" accept="image/*" style="display: none" id="similarity-file1">
+                <div class="preview-container" id="similarity-preview1"></div>
+            </div>
+            <div class="input-area" id="similarity-input2">
+                <p>Drag & drop or click to select second image</p>
+                <input type="file" accept="image/*" style="display: none" id="similarity-file2">
+                <div class="preview-container" id="similarity-preview2"></div>
+            </div>
+            <button onclick="compareFaces()">Compare Faces</button>
+            <div class="preview-container" id="similarity-preview"></div>
+            <div class="result-container" id="similarity-result"></div>
+        </div>
+
+        <!-- Passport Photo Quality Service -->
+        <div class="service-section">
+            <div class="service-title">4. Passport Photo Quality Check</div>
+            <div class="input-area" id="pspt-input">
+                <p>Drag & drop or click to select a passport photo</p>
+                <input type="file" accept="image/*" style="display: none" id="pspt-file">
+            </div>
+            <button onclick="checkPassportQuality()">Check Quality</button>
+            <div class="preview-container" id="pspt-preview"></div>
+            <div class="result-container" id="pspt-result">
+                <div class="result-image-container">
+                    <div class="result-image">
+                        <div class="result-title">Face Detection</div>
+                        <img id="face-detect-output" alt="Face Detection">
+                    </div>
+                    <div class="result-image">
+                        <div class="result-title">Head Detection</div>
+                        <img id="head-detect-output" alt="Head Detection">
+                    </div>
+                    <div class="result-image">
+                        <div class="result-title">Background Removed</div>
+                        <img id="bg-removed-output" alt="Background Removed">
+                    </div>
+                    <div class="result-image">
+                        <div class="result-title">Background Removed with Canny</div>
+                        <img id="bg-removed-canny-output" alt="Background Removed with Canny">
+                    </div>
+                    <div class="result-image">
+                        <div class="result-title">Updated Crown Point</div>
+                        <img id="bg-removed-canny-upd-crown-output" alt="Updated Crown Point">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Base URL for the FastAPI service
+        const BASE_URL = "http://localhost:8000";
+
+        // Setup drag and drop functionality for all input areas
+        document.querySelectorAll('.input-area').forEach(area => {
+            const fileInput = area.querySelector('input[type="file"]');
+            
+            area.addEventListener('click', () => fileInput.click());
+            
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                area.classList.add('dragover');
+            });
+            
+            area.addEventListener('dragleave', () => {
+                area.classList.remove('dragover');
+            });
+            
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                area.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect(e.dataTransfer.files[0], area.id);
+                }
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleFileSelect(e.target.files[0], area.id);
+                }
+            });
+        });
+
+        // Handle file selection and preview
+        function handleFileSelect(file, areaId) {
+            if (!file.type.match('image.*')) {
+                alert('Please select an image file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const previewContainer = document.getElementById(areaId.replace('-input', '-preview'));
+                previewContainer.innerHTML = `
+                    <div class="image-preview">
+                        <img src="${e.target.result}" alt="Preview">
+                        <p>${file.name}</p>
+                    </div>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Convert image to base64
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Display base64 image
+        function displayBase64Image(base64, containerId, title) {
+            const container = document.getElementById(containerId);
+            const imageResult = document.createElement('div');
+            imageResult.className = 'image-result';
+            
+            const titleElement = document.createElement('div');
+            titleElement.className = 'image-title';
+            titleElement.textContent = title;
+            
+            const img = document.createElement('img');
+            img.src = `data:image/jpg;base64,${base64}`;
+            img.alt = title;
+            
+            imageResult.appendChild(titleElement);
+            imageResult.appendChild(img);
+            container.appendChild(imageResult);
+        }
+
+        // 1. Detect Landmarks
+        async function detectLandmarks() {
+            const fileInput = document.getElementById('landmarks-file');
+            if (!fileInput.files.length) {
+                alert('Please select an image');
+                return;
+            }
+
+            try {
+                const base64Image = await getBase64(fileInput.files[0]);
+                const response = await fetch(`${BASE_URL}/detect_landmarks`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        base64image: base64Image,
+                        output_imgType: 'jpg'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const previewContainer = document.getElementById('landmarks-preview');
+                previewContainer.innerHTML = '';
+
+                if (result.base64image_face) displayBase64Image(result.base64image_face, 'landmarks-preview', 'Face Detection');
+                if (result.base64image_faceDot) displayBase64Image(result.base64image_faceDot, 'landmarks-preview', 'Face Dot Detection');
+                if (result.base64image_faceDLib) displayBase64Image(result.base64image_faceDLib, 'landmarks-preview', 'Face DLib Detection');
+                if (result.base64image_faceDLib_68_number) displayBase64Image(result.base64image_faceDLib_68_number, 'landmarks-preview', 'Face DLib 68 Points');
+                if (result.base64image_ear_detect) displayBase64Image(result.base64image_ear_detect, 'landmarks-preview', 'Ear Detection');
+                if (result.base64image_ear_skinColor_detect) displayBase64Image(result.base64image_ear_skinColor_detect, 'landmarks-preview', 'Ear Skin Color Detection');
+
+                document.getElementById('landmarks-result').innerHTML = `
+                    <div class="result-item">
+                        <span class="result-label">Result Code:</span> ${result.resultcode}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Message:</span> ${result.resultmessage}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Total Ear Count:</span> ${result.ear_detected_count}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Left Ear Count:</span> ${result.ear_left_count}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Left Ear Confidence:</span> ${result.ear_left_confidence.toFixed(2)}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Right Ear Count:</span> ${result.ear_right_count}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Right Ear Confidence:</span> ${result.ear_right_confidence.toFixed(2)}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('landmarks-result').innerHTML = `
+                    <div class="error">Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        // 2. Align Face
+        async function alignFace() {
+            const fileInput = document.getElementById('align-file');
+            if (!fileInput.files.length) {
+                alert('Please select an image');
+                return;
+            }
+
+            try {
+                const base64Image = await getBase64(fileInput.files[0]);
+                const response = await fetch(`${BASE_URL}/align_face`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        base64image: base64Image,
+                        output_imgType: 'jpg'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                const previewContainer = document.getElementById('align-preview');
+                previewContainer.innerHTML = '';
+
+                if (result.base64image_align) displayBase64Image(result.base64image_align, 'align-preview', 'Aligned Face');
+                if (result.base64image_bg_mask) displayBase64Image(result.base64image_bg_mask, 'align-preview', 'Background Mask');
+                if (result.base64image_bg_mask_green) displayBase64Image(result.base64image_bg_mask_green, 'align-preview', 'Background Mask (Green)');
+
+                document.getElementById('align-result').innerHTML = `
+                    <div class="result-item">
+                        <span class="result-label">Result Code:</span> ${result.resultcode}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Message:</span> ${result.resultmessage}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Background Color:</span> ${result.background_color.join(', ')}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('align-result').innerHTML = `
+                    <div class="error">Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        // 3. Face Similarity
+        async function compareFaces() {
+            const fileInput1 = document.getElementById('similarity-file1');
+            const fileInput2 = document.getElementById('similarity-file2');
+            if (!fileInput1.files.length || !fileInput2.files.length) {
+                alert('Please select both images');
+                return;
+            }
+
+            try {
+                const base64Image1 = await getBase64(fileInput1.files[0]);
+                const base64Image2 = await getBase64(fileInput2.files[0]);
+                const response = await fetch(`${BASE_URL}/face-similarity`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        base64image1: base64Image1,
+                        base64image2: base64Image2,
+                        filename1: fileInput1.files[0].name,
+                        filename2: fileInput2.files[0].name
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                document.getElementById('similarity-result').innerHTML = `
+                    <div class="result-item">
+                        <span class="result-label">Similarity Score:</span> ${result.similarity_score.toFixed(2)}%
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Result Code:</span> ${result.resultcode}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Message:</span> ${result.resultmessage}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('similarity-result').innerHTML = `
+                    <div class="error">Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        // 4. Passport Photo Quality Check
+        async function checkPassportQuality() {
+            const fileInput = document.getElementById('pspt-file');
+            if (!fileInput.files.length) {
+                alert('Please select a passport photo');
+                return;
+            }
+
+            try {
+                const base64Image = await getBase64(fileInput.files[0]);
+                const response = await fetch(`${BASE_URL}/check_pspt_photo_quality`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        base64image: base64Image,
+                        output_imgType: 'jpg'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                const previewContainer = document.getElementById('pspt-preview');
+                previewContainer.innerHTML = '';
+
+                if (result.base64image_face_detect) displayBase64Image(result.base64image_face_detect, 'pspt-preview', 'Face Detection');
+                if (result.base64image_head_detect) displayBase64Image(result.base64image_head_detect, 'pspt-preview', 'Head Detection');
+                if (result.base64image_bg_removed) displayBase64Image(result.base64image_bg_removed, 'pspt-preview', 'Background Removed');
+                if (result.base64image_bg_removed_canny) displayBase64Image(result.base64image_bg_removed_canny, 'pspt-preview', 'Background Removed with Canny');
+                if (result.base64image_bg_removed_canny_upd_crown) displayBase64Image(result.base64image_bg_removed_canny_upd_crown, 'pspt-preview', 'Updated Crown Point');
+                if (result.base64image_ear_detect) displayBase64Image(result.base64image_ear_detect, 'pspt-preview', 'Ear Detection');
+                if (result.base64image_ear_skinColor_detect) displayBase64Image(result.base64image_ear_skinColor_detect, 'pspt-preview', 'Ear Skin Color Detection');
+
+                const resultContainer = document.getElementById('pspt-result');
+                resultContainer.innerHTML = `
+                    <div class="result-item">
+                        <span class="result-label">Overall Score:</span> ${result.overall_score.toFixed(2)}%
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Result Code:</span> ${result.resultcode}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Message:</span> ${result.resultmessage}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Total Ear Count:</span> ${result.ear_detected_count}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Left Ear Count:</span> ${result.ear_left_count}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Left Ear Confidence:</span> ${result.ear_left_confidence.toFixed(2)}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Right Ear Count:</span> ${result.ear_right_count}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Right Ear Confidence:</span> ${result.ear_right_confidence.toFixed(2)}
+                    </div>
+                `;
+
+                // Add all quality scores
+                const scores = [
+                    ['Face Height Proportion', result.face_height_proportion],
+                    ['Face Width Proportion', result.face_width_proportion],
+                    ['Head Height Proportion', result.head_height_proportion],
+                    ['Head Width Proportion', result.head_width_proportion],
+                    ['Ear Count', result.ear_detected_count],
+                    ['Left Ear Count', result.ear_left_count],
+                    ['Left Ear Confidence', result.ear_left_confidence.toFixed(2)],
+                    ['Right Ear Count', result.ear_right_count],
+                    ['Right Ear Confidence', result.ear_right_confidence.toFixed(2)],
+                    ['Blur Score', result.blur_score],
+                    ['Pixelation Score', result.pixelation_score],
+                    ['White Noise Score', result.white_noise_score],
+                    ['Contrast Score', result.contrast_score],
+                    ['General Illumination Score', result.general_illumination_score],
+                    ['Face Position Score', result.face_position_score],
+                    ['Face Pose Score', result.face_pose_score],
+                    ['Expression Score', result.expression_score],
+                    ['Eyes Open Score', result.eyes_open_score],
+                    ['Eyes Direction Score', result.eyes_direction_score],
+                    ['Mouth Open Score', result.mouth_open_score],
+                    ['Hair Over Face Score', result.hair_over_face_score],
+                    ['Sunglasses Score', result.sunglasses_score],
+                    ['Glasses Reflection Score', result.glasses_reflection_score],
+                    ['Glasses Frame Score', result.glasses_frame_score],
+                    ['Glasses Covering Score', result.glasses_covering_score],
+                    ['Hat Score', result.hat_score],
+                    ['Veil Score', result.veil_score],
+                    ['Skin Color Score', result.skin_color_score],
+                    ['Red Eyes Score', result.red_eyes_score],
+                    ['Skin Reflection Score', result.skin_reflection_score],
+                    ['Shadow Face Score', result.shadow_face_score],
+                    ['Shadow Background Score', result.shadow_background_score],
+                    ['Background Uniformity Score', result.background_uniformity_score],
+                    ['Ink Marks Score', result.ink_marks_score],
+                    ['Other Faces Score', result.other_faces_score]
+                ];
+
+                scores.forEach(([label, score]) => {
+                    resultContainer.innerHTML += `
+                        <div class="result-item">
+                            <span class="result-label">${label}:</span> ${score.toFixed(2)}%
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                document.getElementById('pspt-result').innerHTML = `
+                    <div class="error">Error: ${error.message}</div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

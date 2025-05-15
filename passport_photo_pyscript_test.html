@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passport Photo Quality Test</title>
+    <link rel="stylesheet" href="static/pyscript.css" />
+    <script src="static/pyodide.js"></script>
+    <script src="static/pyscript.js"></script>
+    <script src="static/chart.js"></script>
+    <!-- <script src="static/chartjs-chart-histogram.js"></script> -->
+    <script>
+        let currentSortColumn = null;
+        let sortDirection = 1;
+        let allResults = []; // Store all results for toggling image display
+        let face_height_data = [];
+        let head_height_data = [];
+        let face_width_data = [];
+        let head_width_data = [];
+
+        // Initialize with checkbox unchecked
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('viewAllImages').checked = false;
+        });
+
+        function updateCharts() {
+            const faceHeightChart = document.getElementById('faceHeightChart');
+            const headHeightChart = document.getElementById('headHeightChart');
+
+            if (window.faceChart) {
+                window.faceChart.destroy();
+            }
+            if (window.headChart) {
+                window.headChart.destroy();
+            }
+
+            // Create scatter data points
+            const faceScatterData = face_height_data.map((height, index) => ({
+                x: face_width_data[index],
+                y: height
+            }));
+
+            const headScatterData = head_height_data.map((height, index) => ({
+                x: head_width_data[index],
+                y: height
+            }));
+
+            // Create face proportion scatter plot
+            window.faceChart = new Chart(faceHeightChart, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Face Proportions',
+                        data: faceScatterData,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointStyle: 'circle'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Face Width vs Height Proportion',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Face Width Proportion',
+                                font: {
+                                    size: 14
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Face Height Proportion',
+                                font: {
+                                    size: 14
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Create head proportion scatter plot
+            window.headChart = new Chart(headHeightChart, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Head Proportions',
+                        data: headScatterData,
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointStyle: 'circle'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Head Width vs Height Proportion',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Head Width Proportion',
+                                font: {
+                                    size: 14
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Head Height Proportion',
+                                font: {
+                                    size: 14
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function addData(face_height, face_width, head_height, head_width) {
+            face_height_data.push(face_height);
+            face_width_data.push(face_width);
+            head_height_data.push(head_height);
+            head_width_data.push(head_width);
+            updateCharts();
+        }
+
+        function toggleImageDisplay() {
+            const viewAll = document.getElementById('viewAllImages').checked;
+            const imageContainers = document.querySelectorAll('.image-container');
+            
+            imageContainers.forEach(container => {
+                const images = container.querySelectorAll('.image-item');
+                images.forEach(imgDiv => {
+                    const label = imgDiv.querySelector('.image-label').textContent;
+                    if (viewAll) {
+                        imgDiv.style.display = 'block';
+                    } else {
+                        // Only show face detect and updated crown images
+                        imgDiv.style.display = (label === 'Face Detect' || label === 'BG Removed Canny Updated Crown') ? 'block' : 'none';
+                    }
+                });
+            });
+        }
+
+        function processImages() {
+            const input = document.getElementById('folderInput');
+            const files = input.files;
+            const resultsBody = document.getElementById('resultsBody');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            
+            resultsBody.innerHTML = '';
+            allResults = []; // Clear previous results
+            progressContainer.style.display = 'block';
+            
+            let processedCount = 0;
+            
+            Array.from(files).forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = async function(e) {
+                        try {
+                            const base64Image = e.target.result.split(',')[1];
+                            const response = await fetch('http://localhost:8000/check_pspt_photo_quality', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    base64image: base64Image,
+                                    output_imgType: file.name.split('.').pop()
+                                })
+                            });
+                            
+                            const result = await response.json();
+                            allResults.push({ filename: file.name, result: result });
+                            addResultRow(file.name, result);
+                            
+                            processedCount++;
+                            const progress = (processedCount / files.length) * 100;
+                            progressBar.style.width = progress + '%';
+                            progressBar.textContent = Math.round(progress) + '%';
+                            
+                            if (processedCount === files.length) {
+                                progressContainer.style.display = 'none';
+                                // Apply initial image display state
+                                toggleImageDisplay();
+                            }
+                        } catch (error) {
+                            console.error('Error processing image:', error);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        function addResultRow(filename, result) {
+            const tbody = document.getElementById('resultsBody');
+            const row = document.createElement('tr');
+            
+            // Add data to charts
+            addData(
+                result.face_height_proportion,
+                result.face_width_proportion,
+                result.head_height_proportion,
+                result.head_width_proportion
+            );
+            
+            // Create image container
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'image-container';
+            
+            // Add all images from the result
+            const imageFields = [
+                { name: 'Face Detect', field: 'base64image_face_detect' },
+                { name: 'BG Removed Canny Updated Crown', field: 'base64image_bg_removed_canny_upd_crown' },
+                { name: 'Ear Detection', field: 'base64image_ear_detect' },
+                { name: 'Original', field: 'base64image' },
+                { name: 'Head Detect', field: 'base64image_head_detect' },
+                { name: 'BG Removed', field: 'base64image_bg_removed' },
+                { name: 'BG Removed Canny', field: 'base64image_bg_removed_canny' },
+                { name: 'Ear Skin Color Detection', field: 'base64image_ear_skinColor_detect' }
+            ];
+            
+            imageFields.forEach(img => {
+                if (result[img.field]) {
+                    const imgDiv = document.createElement('div');
+                    imgDiv.className = 'image-item';
+                    
+                    const imgElement = document.createElement('img');
+                    imgElement.src = `data:image/${filename.split('.').pop()};base64,${result[img.field]}`;
+                    
+                    const label = document.createElement('div');
+                    label.className = 'image-label';
+                    label.textContent = img.name;
+                    
+                    imgDiv.appendChild(imgElement);
+                    imgDiv.appendChild(label);
+                    imageContainer.appendChild(imgDiv);
+                }
+            });
+            
+
+            // Add image container cell
+            const imageCell = document.createElement('td');
+            imageCell.appendChild(imageContainer);
+            row.appendChild(imageCell);
+
+
+
+            // Add all the score cells
+            const cells = [
+                result.face_height_proportion,
+                result.face_width_proportion,
+                result.head_height_proportion,
+                result.head_width_proportion,
+                result.ear_detected_count,
+                result.ear_left_count,
+                result.ear_left_confidence,
+                result.ear_right_count,
+                result.ear_right_confidence,
+                result.blur_score,
+                result.pixelation_score,
+                result.white_noise_score,
+                result.contrast_score,
+                result.general_illumination_score,
+                result.face_position_score,
+                result.face_pose_score,
+                result.expression_score,
+                result.eyes_open_score,
+                result.eyes_direction_score,
+                result.mouth_open_score,
+                result.hair_over_face_score,
+                result.sunglasses_score,
+                result.glasses_reflection_score,
+                result.glasses_frame_score,
+                result.glasses_covering_score,
+                result.hat_score,
+                result.veil_score,
+                result.skin_color_score,
+                result.red_eyes_score,
+                result.skin_reflection_score,
+                result.shadow_face_score,
+                result.shadow_background_score,
+                result.background_uniformity_score,
+                result.ink_marks_score,
+                result.other_faces_score,
+                result.overall_score,
+                filename
+            ];
+            
+            cells.forEach(cell => {
+                const td = document.createElement('td');
+                td.textContent = cell;
+                row.appendChild(td);        
+            
+            });
+            
+
+            
+            tbody.appendChild(row);
+        }
+
+        // Add sorting functionality
+        document.querySelectorAll('th').forEach(header => {
+            header.addEventListener('click', () => {
+                const columnIndex = Array.from(header.parentNode.children).indexOf(header);
+                sortTable(columnIndex);
+            });
+        });
+
+        function sortTable(columnIndex) {
+            const table = document.getElementById('resultsTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            // Toggle sort direction if clicking the same column
+            if (currentSortColumn === columnIndex) {
+                sortDirection *= -1;
+            } else {
+                currentSortColumn = columnIndex;
+                sortDirection = 1;
+            }
+            
+            rows.sort((a, b) => {
+                const aValue = a.children[columnIndex].textContent;
+                const bValue = b.children[columnIndex].textContent;
+                
+                // Handle numeric values
+                if (!isNaN(aValue) && !isNaN(bValue)) {
+                    return (parseFloat(aValue) - parseFloat(bValue)) * sortDirection;
+                }
+                
+                // Handle string values
+                return aValue.localeCompare(bValue) * sortDirection;
+            });
+            
+            // Remove existing rows
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+            
+            // Add sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .checkbox-container {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .checkbox-container input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+            cursor: pointer;
+        }
+        th:hover {
+            background-color: #e6e6e6;
+        }
+        .image-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .image-item {
+            width: 200px;
+            text-align: center;
+        }
+        .image-item img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .image-label {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        .progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+        }
+        .progress {
+            width: 0%;
+            height: 30px;
+            background-color: #4CAF50;
+            border-radius: 4px;
+            text-align: center;
+            line-height: 30px;
+            color: white;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .chart {
+            flex: 1;
+            min-height: 400px;
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+<body>
+    <a href="mediapipe_face_landmark_fullsize.png" target="_blank"> mediapipeFace Landmark 486 </a>
+    <div class="container">
+        <h1>Passport Photo Quality Test</h1>
+        <div class="chart-container">
+            <div class="chart">
+                <canvas id="faceHeightChart"></canvas>
+            </div>
+            <div class="chart">
+                <canvas id="headHeightChart"></canvas>
+            </div>
+        </div>
+        <div class="controls">
+            <label for="folderInput">Select Folder:</label>
+            <input type="file" id="folderInput" webkitdirectory directory multiple />
+            <button onclick="processImages()">Process Images</button>
+            <div class="checkbox-container">
+                <input type="checkbox" id="viewAllImages" onchange="toggleImageDisplay()">
+                <label for="viewAllImages">View All Images</label>
+            </div>
+        </div>
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress" id="progressBar">0%</div>
+            </div>
+        </div>
+        <div id="results">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>Images</th>
+                        <th>Face Height Proportion</th>
+                        <th>Face Width Proportion</th>
+                        <th>Head Height Proportion</th>
+                        <th>Head Width Proportion</th>
+                        <th>Ear Count</th>
+                        <th>Left Ear Count</th>
+                        <th>Left Ear Confidence</th>
+                        <th>Right Ear Count</th>
+                        <th>Right Ear Confidence</th>
+                        <th>Blur Score</th>
+                        <th>Pixelation Score</th>
+                        <th>White Noise Score</th>
+                        <th>Contrast Score</th>
+                        <th>General Illumination Score</th>
+                        <th>Face Position Score</th>
+                        <th>Face Pose Score</th>
+                        <th>Expression Score</th>
+                        <th>Eyes Open Score</th>
+                        <th>Eyes Direction Score</th>
+                        <th>Mouth Open Score</th>
+                        <th>Hair Over Face Score</th>
+                        <th>Sunglasses Score</th>
+                        <th>Glasses Reflection Score</th>
+                        <th>Glasses Frame Score</th>
+                        <th>Glasses Covering Score</th>
+                        <th>Hat Score</th>
+                        <th>Veil Score</th>
+                        <th>Skin Color Score</th>
+                        <th>Red Eyes Score</th>
+                        <th>Skin Reflection Score</th>
+                        <th>Shadow Face Score</th>
+                        <th>Shadow Background Score</th>
+                        <th>Background Uniformity Score</th>
+                        <th>Ink Marks Score</th>
+                        <th>Other Faces Score</th>
+                        <th>Overall Score</th>
+                        <th>Filename</th>
+
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html> 
