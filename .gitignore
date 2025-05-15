@@ -1,3 +1,34 @@
+#jelee add
+
+venvPicas/
+pyscript-offline/
+.u2net/
+.vscode/
+001_bkup/
+app/
+cccc/
+logs/
+my_logs/
+pyscript-offline/
+temp/
+templates/
+wheels_swagger_ui/
+
+*.exe
+*.dat 
+*.jpg
+*.bat
+*.cmd 
+*.ps1
+*.whl
+*.css
+
+*.csproj
+
+
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
